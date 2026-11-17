@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.ordermanager.domain.User;
 import com.ordermanager.dto.UserRequest;
@@ -45,7 +46,8 @@ public class UserController {
     @PostMapping
     public ResponseEntity<UserResponse> create(@Valid @RequestBody UserRequest request) {
         User user = userService.create(request.name(), request.email()); // cria entidade
-        URI location = URI.create("/api/users/" + user.getId()); // para o cliente saber onde consultar o user criado
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}").buildAndExpand(user.getId()).toUri(); // para o cliente saber onde consultar o user criado
         return ResponseEntity.created(location).body(UserResponse.from(user));
     }
 

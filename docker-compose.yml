@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: order-manager-db
+    environment:
+      POSTGRES_DB: ordermanager
+      POSTGRES_USER: ordermanager
+      POSTGRES_PASSWORD: ordermanager
+    ports:
+      - "5432:5432"
+    volumes:
+      - order-manager-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ordermanager -d ordermanager"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  order-manager-data:

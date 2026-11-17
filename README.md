@@ -35,5 +35,7 @@ A aplicação fica disponível na porta 8080 por padrão.
   - Chaves das tabelas BIGINT. Com `GENERATED ALWAYS AS IDENTITY` para auto incremento nas chaves primárias.
   - Campos `TIMESTAMP` para datas, sem o timezone da bd.
   - Adicionados alguns constraints e checks de campos int.
+  - Adicionados também indices para melhor performance nas consultas.
   - O enunciado indica que se deve registar os movimentos ao completar encomendas. Com apenas uma tabela de `orders` os movimentos ficariam limitados à quantidade da encomenda. Por isso considero que o melhor é registar os movimentos das completar orders numa tabela separada `order_movements`.
 - Hibernate com ddl-auto em movo validate para não fazer alterações na bd. Alterações na estrutura feitas apenas pelo flyway.
+- CRUD dos utilizadores. Mensagens de excepções e validação a inglês. Comentários em PT.

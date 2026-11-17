@@ -39,3 +39,4 @@ A aplicação fica disponível na porta 8080 por padrão.
   - O enunciado indica que se deve registar os movimentos ao completar encomendas. Com apenas uma tabela de `orders` os movimentos ficariam limitados à quantidade da encomenda. Por isso considero que o melhor é registar os movimentos das completar orders numa tabela separada `order_movements`.
 - Hibernate com ddl-auto em movo validate para não fazer alterações na bd. Alterações na estrutura feitas apenas pelo flyway.
 - CRUD dos utilizadores. Mensagens de excepções e validação a inglês. Comentários em PT.
+- Handler de excepções globais com formatação unificada dos erros com `ProblemDetail` (RFC 9457). Baseado na implementação que fiz ha uns meses atras num projeto github: https://github.com/goncaloe/timegrid/blob/main/src/main/java/com/timegrid/controller/ApiExceptionHandler.java

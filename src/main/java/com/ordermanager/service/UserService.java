@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ordermanager.domain.User;
 import com.ordermanager.exception.BusinessException;
+import com.ordermanager.exception.NotFoundException;
 import com.ordermanager.repository.UserRepository;
 
 @Service
@@ -31,7 +32,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public User get(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User", id));
     }
 
     @Transactional(readOnly = true)

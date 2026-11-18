@@ -83,4 +83,11 @@ public class Order {
     public boolean isComplete() {
         return getRemainingQuantity() <= 0;
     }
+
+    public int getCompletionPercentage() {
+        if (quantity <= 0) {
+            return 100;
+        }
+        return (int) Math.min(100, Math.round(getFulfilledQuantity() * 100.0 / quantity));
+    }
 }

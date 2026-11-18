@@ -27,6 +27,13 @@ mvn spring-boot:run
 
 A aplicação fica disponível na porta 8080 por padrão.
 
+## Testes
+
+Os testes de integração correm numa bd real PostgreSQL (via Testcontainers), com as migrações Flyway aplicadas, por isso é necessário ter o Docker a correr.
+
+```bash
+mvn test
+```
 
 ## Notas de implementação
 
@@ -46,3 +53,5 @@ A aplicação fica disponível na porta 8080 por padrão.
 - StockMovement (tabela `stock_movements`) é imutável depois de criado. Não se apagam registos. Se o negócio precisa de corrigir, cria-se um novo registo de movimento com quantidade negativa.
 - OrderMovement (tabela `order_movements`) tem o registo de movimentos de stock para uma encomenda. Cada linha de `order_movements` é uma alocação. O valor de `quantity` pode alterar até corresponder para completar a alocação da order e StockMovement correspondente.
 - Criado service `StockAllocator` partilhado que não é de api, mas para fazer a gestão de entradas alocadas de stock e dos movimentos na criação de encomendas. Desta forma a lógica não fica dumplicada nos 2 services: orderService stockMovementService.
+- Quando entra stock de um item, verifica cada order incompleta para alocar
+- Adicionado logs nos services OrderService e StockMovementService

@@ -52,6 +52,25 @@ class OrderFulfilmentIntegrationTest {
         assertThat(order.getCompletionPercentage()).isEqualTo(100);
     }
 
+    @Test
+    @DisplayName("An order without stock stays pending and is completed when stock arrives")
+    void orderCompletesWhenStockArrives() {
+        //encomenda pendente concluída quando o stock chega (parcial -> total);
+        Order order = orderService.create(itemId, userId, 10);
+        assertThat(order.isComplete()).isFalse();
+        assertThat(order.getCompletionPercentage()).isZero();
 
+        stockMovementService.create(itemId, 4);
+        Order afterPartial = orderService.get(order.getId());
+        assertThat(afterPartial.getFulfilledQuantity()).isEqualTo(4);
+        assertThat(afterPartial.getCompletionPercentage()).isEqualTo(40);
+        assertThat(afterPartial.isComplete()).isFalse();
+
+        stockMovementService.create(itemId, 6);
+        Order afterComplete = orderService.get(order.getId()); // neste ponto a ordem fica completamente alocada
+        assertThat(afterComplete.isComplete()).isTrue();
+        assertThat(afterComplete.getFulfilledQuantity()).isEqualTo(10);
+
+    }
 
 }

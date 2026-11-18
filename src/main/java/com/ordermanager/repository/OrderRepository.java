@@ -1,5 +1,6 @@
 package com.ordermanager.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -15,6 +16,7 @@ import jakarta.persistence.LockModeType;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    boolean existsByItemId(Long itemId);
 
     // obtem a order já com a informação do item e user (relações sempre presentes)
     // bloqueia uma order especifica com pessimistic lock para não haver alocações duplicadas
@@ -58,4 +60,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findAllFilteredWithAllocations(@Param("itemId") Long itemId,
                                                @Param("userId") Long userId,
                                                Pageable pageable);
+
+
+    // JPQL da lista de orders incompletas, das mais antigas para as recentes
+    // ordem imcompleta = quando a soma de quantity das order_movements é inferior a order.quantity
+    @Query("""
+            SELECT o
+            FROM Order o
+            WHERE o.item.id = :itemId
+              AND o.quantity > (SELECT COALESCE(SUM(a.quantity), 0) FROM OrderMovement a WHERE a.order = o)
+            ORDER BY o.createdAt ASC, o.id ASC
+            """)
+    List<Order> findPendingOrdersForItem(@Param("itemId") Long itemId);
 }

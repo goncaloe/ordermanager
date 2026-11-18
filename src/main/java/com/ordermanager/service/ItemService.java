@@ -1,22 +1,30 @@
 package com.ordermanager.service;
 
-import com.ordermanager.domain.Item;
-import com.ordermanager.exception.BusinessException;
-import com.ordermanager.exception.NotFoundException;
-import com.ordermanager.repository.ItemRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ordermanager.domain.Item;
+import com.ordermanager.exception.BusinessException;
+import com.ordermanager.exception.NotFoundException;
+import com.ordermanager.repository.ItemRepository;
+import com.ordermanager.repository.OrderRepository;
+import com.ordermanager.repository.StockMovementRepository;
+
 @Service
-@Transactional(readOnly = true)
 public class ItemService {
 
     private final ItemRepository itemRepository;
+    private final OrderRepository orderRepository;
+    private final StockMovementRepository stockMovementRepository;
 
-    public ItemService(ItemRepository itemRepository) {
+    public ItemService(ItemRepository itemRepository,
+                       OrderRepository orderRepository,
+                       StockMovementRepository stockMovementRepository) {
         this.itemRepository = itemRepository;
+        this.orderRepository = orderRepository;
+        this.stockMovementRepository = stockMovementRepository;
     }
 
     @Transactional
@@ -29,11 +37,13 @@ public class ItemService {
         return item;
     }
 
+    @Transactional(readOnly = true)
     public Item get(Long id) {
         return itemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Item", id));
     }
 
+    @Transactional(readOnly = true)
     public Page<Item> list(Pageable pageable) {
         return itemRepository.findAll(pageable);
     }
@@ -52,7 +62,9 @@ public class ItemService {
     @Transactional
     public void delete(Long id) {
         Item item = get(id);
-        // TODO: adicionar checks quando tiver os repo de stockMovement
+        if (stockMovementRepository.existsByItemId(id) || orderRepository.existsByItemId(id)) {
+            throw new BusinessException("Item '%s' cannot be deleted because it has stock movements or orders".formatted(item.getName()));
+        }
         itemRepository.delete(item);
     }
 }

@@ -10,6 +10,8 @@ import com.ordermanager.domain.StockMovement;
 
 public interface StockMovementRepository extends JpaRepository<StockMovement, Long> {
 
+    boolean existsByItemId(Long itemId);
+
     // obtem a quantidade de stock livre de um item. Soma de: total de entradas positivas - total items processados
     // só conta os StockMovement com quantidade positiva
     // usar COALESCE ter 0 quando não há registos

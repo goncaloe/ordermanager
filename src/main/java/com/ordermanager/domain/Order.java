@@ -80,4 +80,7 @@ public class Order {
         return allocations.stream().mapToLong(OrderMovement::getQuantity).sum();
     }
 
+    public boolean isComplete() {
+        return getRemainingQuantity() <= 0;
+    }
 }

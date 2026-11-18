@@ -3,6 +3,8 @@ package com.ordermanager.domain;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -59,6 +61,23 @@ public class Order {
         allocations.add(new OrderMovement(this, movement, quantity));
     }
 
-    // TODO: adicionar métodos que funcionam como campos virtuais, não guardados na tabela,
+    // alguns métodos funcionam como campos virtuais, e não guardados na tabela da bd,
     // mas inferidos pela lista de allocations, que é a fonte da verdade
+
+    // procura na lista de allocations se há uma OrderMovement associado ao StockMoment passado no parametro
+    public Optional<OrderMovement> findAllocation(StockMovement movement) {
+        return allocations.stream()
+                .filter(a -> Objects.equals(a.getStockMovement().getId(), movement.getId()))
+                .findFirst();
+    }
+
+    public long getRemainingQuantity() {
+        return quantity - getFulfilledQuantity();
+    }
+
+    public long getFulfilledQuantity() {
+        // soma quantity da lista de allocations
+        return allocations.stream().mapToLong(OrderMovement::getQuantity).sum();
+    }
+
 }

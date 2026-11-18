@@ -47,7 +47,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
               LEFT JOIN FETCH a.stockMovement
             WHERE (:itemId IS NULL OR o.item.id = :itemId)
               AND (:userId IS NULL OR o.user.id = :userId)
-            ORDER BY o.createdAt ASC
+            ORDER BY o.createdAt ASC, o.id ASC
             """,
             countQuery = """
             SELECT COUNT(o)

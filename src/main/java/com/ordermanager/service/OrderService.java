@@ -1,5 +1,7 @@
 package com.ordermanager.service;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -7,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ordermanager.domain.Item;
 import com.ordermanager.domain.Order;
+import com.ordermanager.domain.OrderMovement;
 import com.ordermanager.domain.User;
 import com.ordermanager.exception.NotFoundException;
 import com.ordermanager.repository.OrderRepository;
@@ -17,13 +20,16 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ItemService itemService;
     private final UserService userService;
+    private final StockAllocator stockAllocator;
 
     public OrderService(OrderRepository orderRepository,
                         ItemService itemService,
-                        UserService userService) {
+                        UserService userService,
+                        StockAllocator stockAllocator) {
         this.orderRepository = orderRepository;
         this.itemService = itemService;
         this.userService = userService;
+        this.stockAllocator = stockAllocator;
     }
 
 
@@ -33,8 +39,14 @@ public class OrderService {
         User user = userService.get(userId);
 
         Order order = orderRepository.save(new Order(item, user, quantity));
-
-        // TODO: tentar alocar movements em stock a esta order
+        
+        List<OrderMovement> allocations = stockAllocator.allocateToOrder(order);
+        if(allocations.isEmpty()){
+            //nada para alocar
+        }
+        else {
+            // TODO: fazer log dos OrderMovement alocados
+        }
         
         return order;
     }

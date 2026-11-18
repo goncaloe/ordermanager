@@ -43,3 +43,6 @@ A aplicação fica disponível na porta 8080 por padrão.
 - Handler de excepções globais com formatação unificada dos erros com `ProblemDetail` (RFC 9457). Baseado na implementação que fiz ha uns meses atras num projeto github: https://github.com/goncaloe/timegrid/blob/main/src/main/java/com/timegrid/controller/ApiExceptionHandler.java
 - Create e update de um item deve verificar que não existe outro registo com o `name` igual.
 - CRUD dos StockMovement. Falta calcular quantidades alocadas
+- StockMovement (tabela `stock_movements`) é imutável depois de criado. Não se apagam registos. Se o negócio precisa de corrigir, cria-se um novo registo de movimento com quantidade negativa.
+- OrderMovement (tabela `order_movements`) tem o registo de movimentos de stock para uma encomenda. Cada linha de `order_movements` é uma alocação. O valor de `quantity` pode alterar até corresponder para completar a alocação da order e StockMovement correspondente.
+- Criado service `StockAllocator` partilhado que não é de api, mas para fazer a gestão de entradas alocadas de stock e dos movimentos na criação de encomendas. Desta forma a lógica não fica dumplicada nos 2 services: orderService stockMovementService.

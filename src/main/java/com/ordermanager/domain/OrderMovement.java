@@ -45,4 +45,9 @@ public class OrderMovement {
         this.quantity = quantity;
     }
 
+    // aumenta a quantidade consumida de um movement da order
+    public void addQuantity(long qty) {
+        this.quantity += qty;
+    }
+
 }

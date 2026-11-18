@@ -13,9 +13,13 @@ import com.ordermanager.domain.OrderMovement;
 import com.ordermanager.domain.User;
 import com.ordermanager.exception.NotFoundException;
 import com.ordermanager.repository.OrderRepository;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 @Service
 public class OrderService {
+
+    private static final Logger ORDER_LOG = LogManager.getLogger("app.orders");
 
     private final OrderRepository orderRepository;
     private final ItemService itemService;
@@ -23,15 +27,14 @@ public class OrderService {
     private final StockAllocator stockAllocator;
 
     public OrderService(OrderRepository orderRepository,
-                        ItemService itemService,
-                        UserService userService,
-                        StockAllocator stockAllocator) {
+            ItemService itemService,
+            UserService userService,
+            StockAllocator stockAllocator) {
         this.orderRepository = orderRepository;
         this.itemService = itemService;
         this.userService = userService;
         this.stockAllocator = stockAllocator;
     }
-
 
     @Transactional
     public Order create(Long itemId, Long userId, long quantity) {
@@ -39,15 +42,21 @@ public class OrderService {
         User user = userService.get(userId);
 
         Order order = orderRepository.save(new Order(item, user, quantity));
-        
+        ORDER_LOG.info("Order {} created (item={}, qty={}, user={})", order.getId(), item.getName(), quantity, userId);
+
         List<OrderMovement> allocations = stockAllocator.allocateToOrder(order);
-        if(allocations.isEmpty()){
-            //nada para alocar
-        }
-        else {
+        if (allocations.isEmpty()) {
+            // nada para alocar
+            ORDER_LOG.info("Order {} awaiting stock: 0/{} unit(s) available", order.getId(), quantity);
+        } else if (order.isComplete()) {
+            ORDER_LOG.info("Order {} COMPLETED with {} unit(s) from {} stock movement(s)",
+                    order.getId(), order.getQuantity(), order.getAllocations().size());
+        } else {
             // TODO: fazer log dos OrderMovement alocados
+            ORDER_LOG.info("Order {} partially fulfilled: {}/{} unit(s)",
+                    order.getId(), order.getFulfilledQuantity(), quantity);
         }
-        
+
         return order;
     }
 
@@ -66,7 +75,7 @@ public class OrderService {
     public Order update(Long id, Long itemId, Long userId, Long quantity) {
         Order order = orderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new NotFoundException("Order", id));
-        
+
         // TODO: recalcular a alocação de movimentos
 
         return order;
@@ -76,9 +85,11 @@ public class OrderService {
     public void delete(Long id) {
         Order order = orderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new NotFoundException("Order", id));
-        
+
         orderRepository.delete(order);
+        ORDER_LOG.info("Order {} deleted", id);
         
-        // TODO: ao apagar a order, items voltam para o stock, logo disponível para alocar a outras orders pendentes
+        // TODO: ao apagar a order, items voltam para o stock, logo disponível para
+        // alocar a outras orders pendentes
     }
 }

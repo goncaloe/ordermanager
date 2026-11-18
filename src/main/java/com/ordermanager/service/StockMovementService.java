@@ -13,30 +13,42 @@ import com.ordermanager.domain.StockMovement;
 import com.ordermanager.dto.StockMovementResponse;
 import com.ordermanager.exception.NotFoundException;
 import com.ordermanager.repository.StockMovementRepository;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 @Service
 public class StockMovementService {
+
+    private static final Logger STOCK_LOG = LogManager.getLogger("app.stock");
+    private static final Logger ORDER_LOG = LogManager.getLogger("app.orders");
 
     private final StockMovementRepository stockMovementRepository;
     private final ItemService itemService;
     private final StockAllocator stockAllocator;
 
-    public StockMovementService(StockMovementRepository stockMovementRepository, ItemService itemService, StockAllocator stockAllocator) {
+    public StockMovementService(StockMovementRepository stockMovementRepository, ItemService itemService,
+            StockAllocator stockAllocator) {
         this.stockMovementRepository = stockMovementRepository;
         this.itemService = itemService;
         this.stockAllocator = stockAllocator;
     }
 
-    // Regista stock de um item; se houver pedidos antigos do item à espera de stock será atribuido a movimentos dessa encomenda
+    // Regista stock de um item; se houver pedidos antigos do item à espera de stock
+    // será atribuido a movimentos dessa encomenda
     @Transactional
     public StockMovement create(Long itemId, long quantity) {
         Item item = itemService.get(itemId);
+
         StockMovement movement = stockMovementRepository.save(new StockMovement(item, quantity));
 
-        //aloca movimentos se for possível
+        STOCK_LOG.info("Stock movement {} created (item={}, qty={})", movement.getId(), item.getName(), quantity);
+        // aloca movimentos se for possível
         List<Order> completed = stockAllocator.allocateToPendingOrders(item.getId());
-
-        // TODO: seria aqui que enviamos email?
+        completed.forEach(order -> {
+            ORDER_LOG.info("Order {} COMPLETED by stock movement {} ({}/{} unit(s))", order.getId(), movement.getId(),
+                    order.getFulfilledQuantity(), order.getQuantity());
+            // TODO: seria aqui que enviamos email?
+        });
 
         return movement;
     }
@@ -63,18 +75,28 @@ public class StockMovementService {
         return page.map(movement -> StockMovementResponse.from(movement));
     }
 
-
     @Transactional
     public void delete(Long id) {
         StockMovement movement = get(id);
+        Long itemId = movement.getItem().getId();
+        String itemName = movement.getItem().getName();
+        long deletedQuantity = movement.getQuantity();
+        long affected = stockMovementRepository.findOrderRefsUsingMovement(id).size();
 
+        STOCK_LOG.info("Stock movement {} deleted (item={}, qty={})", id, itemName, deletedQuantity);
+        stockMovementRepository.deleteAllocationsUsingMovement(id);
         stockMovementRepository.delete(movement);
         stockMovementRepository.flush();
+
+        if (affected > 0) {
+            STOCK_LOG.warn("Stock movement {} was used by {} order(s); their fulfilment was recomputed", id, affected);
+            stockAllocator.allocateToPendingOrders(itemId);
+        }
+
     }
 
-
-
-    // obtem a quantidade de stock livre de um item: total de entradas positivas - total items processados
+    // obtem a quantidade de stock livre de um item: total de entradas positivas -
+    // total items processados
     public long availableStockOf(Long itemId) {
         itemService.get(itemId); // lança 404 se o item não existir
         return availableStock(itemId);

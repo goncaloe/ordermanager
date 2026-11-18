@@ -3,7 +3,9 @@ package com.ordermanager.controller;
 import com.ordermanager.domain.Item;
 import com.ordermanager.dto.ItemRequest;
 import com.ordermanager.dto.ItemResponse;
+import com.ordermanager.dto.ItemStockResponse;
 import com.ordermanager.service.ItemService;
+import com.ordermanager.service.StockMovementService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,9 +27,11 @@ import java.net.URI;
 public class ItemController {
 
     private final ItemService itemService;
+    private final StockMovementService stockMovementService;
 
-    public ItemController(ItemService itemService) {
+    public ItemController(ItemService itemService, StockMovementService stockMovementService) {
         this.itemService = itemService;
+        this.stockMovementService = stockMovementService;
     }
 
     @GetMapping
@@ -38,6 +42,12 @@ public class ItemController {
     @GetMapping("/{id}")
     public ItemResponse get(@PathVariable Long id) {
         return ItemResponse.from(itemService.get(id));
+    }
+
+    @GetMapping("/{id}/stock")
+    public ItemStockResponse stock(@PathVariable Long id) {
+        Item item = itemService.get(id);
+        return new ItemStockResponse(id, item.getName(), stockMovementService.availableStockOf(id));
     }
 
     @PostMapping

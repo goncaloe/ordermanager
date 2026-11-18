@@ -47,7 +47,7 @@ public class Order {
 
     // cascade all para remover registos de order_movements quando se remove a order
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<OrderStockMovement> allocations = new ArrayList<>();
+    private List<OrderMovement> allocations = new ArrayList<>();
 
     public Order(Item item, User user, long quantity) {
         this.item = item;
@@ -56,7 +56,9 @@ public class Order {
     }
 
     public void allocate(StockMovement movement, long quantity) {
-        allocations.add(new OrderStockMovement(this, movement, quantity));
+        allocations.add(new OrderMovement(this, movement, quantity));
     }
 
+    // TODO: adicionar métodos que funcionam como campos virtuais, não guardados na tabela,
+    // mas inferidos pela lista de allocations, que é a fonte da verdade
 }

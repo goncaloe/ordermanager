@@ -61,4 +61,16 @@ public class StockMovementService {
         stockMovementRepository.delete(movement);
         stockMovementRepository.flush();
     }
+
+
+
+    // obtem a quantidade de stock livre de um item: total de entradas positivas - total items processados
+    public long availableStockOf(Long itemId) {
+        itemService.get(itemId); // lança 404 se o item não existir
+        return availableStock(itemId);
+    }
+
+    public long availableStock(Long itemId) {
+        return Math.max(0, stockMovementRepository.calculateAvailableStock(itemId));
+    }
 }

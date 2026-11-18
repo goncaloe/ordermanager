@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "order_movements")
 @Getter
 @NoArgsConstructor
-public class OrderStockMovement {
+public class OrderMovement {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,7 +39,7 @@ public class OrderStockMovement {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
-    public OrderStockMovement(Order order, StockMovement movement, long quantity) {
+    public OrderMovement(Order order, StockMovement movement, long quantity) {
         this.order = order;
         this.stockMovement = movement;
         this.quantity = quantity;

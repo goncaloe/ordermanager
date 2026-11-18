@@ -53,4 +53,8 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     @Query("DELETE FROM OrderMovement a WHERE a.stockMovement.id = :movementId")
     void deleteAllocationsUsingMovement(@Param("movementId") Long movementId);
 
+    
+    @Query("SELECT COALESCE(SUM(a.quantity), 0) FROM OrderMovement a WHERE a.stockMovement.id = :movementId")
+    long allocatedQuantityForMovement(@Param("movementId") Long movementId);
+
 }

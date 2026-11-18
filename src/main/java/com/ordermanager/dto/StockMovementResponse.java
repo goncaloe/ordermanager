@@ -10,18 +10,22 @@ public record StockMovementResponse(
         Long itemId,
         String itemName,
         long quantity,
+        long allocatedQuantity,
+        long availableQuantity,
         Instant createAt
 
-        // TODO: incluir quantidade alocada
 ) {
 
 
-    public static StockMovementResponse from(StockMovement movement) {
+    public static StockMovementResponse from(StockMovement movement, long allocated) {
+        long available = Math.max(0, movement.getQuantity() - allocated);
         return new StockMovementResponse(
                 movement.getId(),
                 movement.getItem().getId(),
                 movement.getItem().getName(),
                 movement.getQuantity(),
+                allocated,
+                available,
                 movement.getCreatedAt());
     }
 

@@ -11,6 +11,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ordermanager.domain.Order;
+import com.ordermanager.domain.StockMovement;
 import com.ordermanager.service.ItemService;
 import com.ordermanager.service.OrderService;
 import com.ordermanager.service.StockMovementService;
@@ -71,6 +72,63 @@ class OrderFulfilmentIntegrationTest {
         assertThat(afterComplete.isComplete()).isTrue();
         assertThat(afterComplete.getFulfilledQuantity()).isEqualTo(10);
 
+    }
+
+    @Test
+    @DisplayName("Stock is attributed to the oldest pending order first (FIFO)")
+    void stockGoesToOldestOrderFirst() {
+        // este teste verifica se a atribuição segue FIFO (a encomenda mais antiga é alocada primeiro);
+        Order first = orderService.create(itemId, userId, 5);
+        Order second = orderService.create(itemId, userId, 5);
+
+        stockMovementService.create(itemId, 6);
+
+        Order firstAfter = orderService.get(first.getId());
+        Order secondAfter = orderService.get(second.getId());
+
+        assertThat(firstAfter.isComplete()).isTrue();
+        assertThat(secondAfter.getFulfilledQuantity()).isEqualTo(1);
+        assertThat(secondAfter.isComplete()).isFalse();
+    }
+
+    
+    @Test
+    @DisplayName("An order spanning several movements traces all of them, and each movement traces back")
+    void traceIsBidirectional() {
+        Order order = orderService.create(itemId, userId, 15);
+
+        StockMovement first = stockMovementService.create(itemId, 10);
+        StockMovement second = stockMovementService.create(itemId, 10);
+
+        Order completed = orderService.get(order.getId());
+        assertThat(completed.isComplete()).isTrue();
+        assertThat(completed.getAllocations()).hasSize(2);
+
+        // order -> movements (verifica as alocações associadas)
+        assertThat(completed.getAllocations())
+                .extracting(a -> a.getStockMovement().getId())
+                .containsExactly(first.getId(), second.getId());
+
+        //TODO: verificar que first e second tem order associado
+    }
+    
+    @Test
+    @DisplayName("A movement is never over-committed beyond its own quantity")
+    void movementIsNeverOverAllocated() {
+        stockMovementService.create(itemId, 5);
+        Order first = orderService.create(itemId, userId, 5);
+        Order second = orderService.create(itemId, userId, 5);
+
+        assertThat(orderService.get(first.getId()).getFulfilledQuantity()).isEqualTo(5);
+        assertThat(orderService.get(second.getId()).getFulfilledQuantity()).isZero();
+
+        // O movement da primeira order está totalmente alocado.
+        Long usedMovementId = orderService.get(first.getId()).getAllocations().getFirst()
+                .getStockMovement().getId();
+        var response = stockMovementService.getResponse(usedMovementId);
+        assertThat(response.allocatedQuantity()).isEqualTo(5);
+        assertThat(response.availableQuantity()).isZero();
+        assertThat(stockMovementService.availableStockOf(itemId)).isZero();
     }
 
 }

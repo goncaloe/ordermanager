@@ -2,6 +2,8 @@ package com.ordermanager.service;
 
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -13,8 +15,6 @@ import com.ordermanager.domain.StockMovement;
 import com.ordermanager.dto.StockMovementResponse;
 import com.ordermanager.exception.NotFoundException;
 import com.ordermanager.repository.StockMovementRepository;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 @Service
 public class StockMovementService {
@@ -67,12 +67,14 @@ public class StockMovementService {
     @Transactional(readOnly = true)
     public StockMovementResponse getResponse(Long id) {
         StockMovement movement = get(id);
-        return StockMovementResponse.from(movement);
+        return StockMovementResponse.from(movement, 
+            stockMovementRepository.allocatedQuantityForMovement(id));
     }
 
     public Page<StockMovementResponse> listWithAvailability(Pageable pageable) {
         Page<StockMovement> page = stockMovementRepository.findAll(pageable);
-        return page.map(movement -> StockMovementResponse.from(movement));
+        return page.map(movement -> StockMovementResponse.from(movement,
+            stockMovementRepository.allocatedQuantityForMovement(movement.getId())));
     }
 
     @Transactional

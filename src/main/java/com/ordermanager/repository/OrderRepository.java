@@ -8,20 +8,24 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
 import com.ordermanager.domain.Order;
 
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     boolean existsByItemId(Long itemId);
 
-    // obtem a order já com a informação do item e user (relações sempre presentes)
-    // bloqueia uma order especifica com pessimistic lock para não haver alocações duplicadas
+    // Bloqueia uma encomenda específica, até ao fim da transacção. O SELECT é simples
+    // (sem JOIN FETCH) para o FOR UPDATE bloquear apenas a linha de orders: as relações
+    // são carregadas lazy dentro da transacção. O timeout evita esperas indefinidas.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT o FROM Order o JOIN FETCH o.item JOIN FETCH o.user WHERE o.id = :id")
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000"))
+    @Query("SELECT o FROM Order o WHERE o.id = :id")
     Optional<Order> findByIdForUpdate(@Param("id") Long id);
 
     // obtem a order já com toda a informação numa query. Versão sem filtros
@@ -62,14 +66,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                                                Pageable pageable);
 
 
-    // JPQL da lista de orders incompletas, das mais antigas para as recentes
-    // ordem imcompleta = quando a soma de quantity das order_movements é inferior a order.quantity
+    // Ids das orders incompletas, das mais antigas para as recentes
+    // ordem incompleta = quando a soma de quantity das order_movements é inferior a order.quantity
+    // Devolve apenas ids: cada encomenda é depois carregada já com o lock, para não haver
+    // estado antigo no persistence context
     @Query("""
-            SELECT o
+            SELECT o.id
             FROM Order o
             WHERE o.item.id = :itemId
               AND o.quantity > (SELECT COALESCE(SUM(a.quantity), 0) FROM OrderMovement a WHERE a.order = o)
             ORDER BY o.createdAt ASC, o.id ASC
             """)
-    List<Order> findPendingOrdersForItem(@Param("itemId") Long itemId);
+    List<Long> findPendingOrderIdsForItem(@Param("itemId") Long itemId);
 }

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -60,6 +61,14 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
         String message = "Parameter '%s' has an invalid value: %s".formatted(ex.getName(), ex.getValue());
         return problem(HttpStatus.BAD_REQUEST, "Invalid parameter", message, request);
+    }
+
+    // Falha ao obter um lock pessimista (timeout ou deadlock). O pedido não chegou a
+    // correr, por isso pode ser repetido pelo cliente.
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    public ProblemDetail handleLockFailure(PessimisticLockingFailureException ex, HttpServletRequest request) {
+        return problem(HttpStatus.CONFLICT, "Concurrent operation",
+                "The resource is being modified by another operation. Try again.", request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

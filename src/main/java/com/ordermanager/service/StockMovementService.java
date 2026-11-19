@@ -38,7 +38,8 @@ public class StockMovementService {
     // será atribuido a movimentos dessa encomenda
     @Transactional
     public StockMovement create(Long itemId, long quantity) {
-        Item item = itemService.get(itemId);
+        // o lock do item serializa esta entrada de stock com as encomendas do mesmo item
+        Item item = itemService.lock(itemId);
 
         StockMovement movement = stockMovementRepository.save(new StockMovement(item, quantity));
 

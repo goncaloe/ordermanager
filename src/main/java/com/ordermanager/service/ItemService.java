@@ -48,6 +48,15 @@ public class ItemService {
         return itemRepository.findAll(pageable);
     }
 
+    // Bloqueia o stock do item (ver ItemRepository.findByIdForUpdate). Deve ser a
+    // primeira operação de qualquer transacção que vá decidir alocações de stock, e
+    // acontecer antes de bloquear encomendas.
+    @Transactional
+    public Item lock(Long id) {
+        return itemRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new NotFoundException("Item", id));
+    }
+
     @Transactional
     public Item update(Long id, String name) {
         Item item = get(id);
@@ -61,7 +70,7 @@ public class ItemService {
 
     @Transactional
     public void delete(Long id) {
-        Item item = get(id);
+        Item item = lock(id);
         if (stockMovementRepository.existsByItemId(id) || orderRepository.existsByItemId(id)) {
             throw new BusinessException("Item '%s' cannot be deleted because it has stock movements or orders".formatted(item.getName()));
         }

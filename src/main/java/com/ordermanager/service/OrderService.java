@@ -38,7 +38,8 @@ public class OrderService {
 
     @Transactional
     public Order create(Long itemId, Long userId, long quantity) {
-        Item item = itemService.get(itemId);
+        // o lock do item serializa esta criação com as restantes operações de stock do item
+        Item item = itemService.lock(itemId);
         User user = userService.get(userId);
 
         Order order = orderRepository.save(new Order(item, user, quantity));
@@ -83,14 +84,23 @@ public class OrderService {
 
     @Transactional
     public void delete(Long id) {
+        // lê a encomenda sem lock só para saber que item bloquear; a ordem de locks é
+        // sempre items -> orders, para não fechar ciclos com allocateToPendingOrders
+        Order snapshot = orderRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Order", id));
+        Long itemId = snapshot.getItem().getId();
+        itemService.lock(itemId);
+
         Order order = orderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new NotFoundException("Order", id));
 
         orderRepository.delete(order);
+        // o cascade das order_movements tem de estar aplicado na BD antes de recalcular
+        // a disponibilidade das restantes encomendas
+        orderRepository.flush();
         ORDER_LOG.info("Order {} deleted", id);
-        
+
         // Ao apagar uma ordem liberta stock para processar outras ordens
-        Long itemId = order.getItem().getId();
         reallocatePendingOrders(itemId);
     }
 

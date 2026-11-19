@@ -12,17 +12,25 @@ import com.ordermanager.domain.StockMovement;
 import com.ordermanager.repository.OrderRepository;
 import com.ordermanager.repository.StockMovementRepository;
 
+import jakarta.persistence.EntityManager;
 
-// Não é um service de api, por isso pode ser @Component
+
+// Não é um service de api, por isso pode ser @Component.
+// Nenhum destes métodos é seguro por si só: quem chama tem de ter o lock do item
+// (ItemService.lock) na mão, para que as leituras de disponibilidade e as escritas de
+// alocações do mesmo item fiquem serializadas.
 @Component
 public class StockAllocator {
 
     private final OrderRepository orderRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final EntityManager entityManager;
 
-    public StockAllocator(OrderRepository orderRepository, StockMovementRepository stockMovementRepository) {
+    public StockAllocator(OrderRepository orderRepository, StockMovementRepository stockMovementRepository,
+            EntityManager entityManager) {
         this.orderRepository = orderRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.entityManager = entityManager;
     }
 
     // dada uma order, procura por registos de StockMovement disponíveis até completar a quantidade restante da order.
@@ -65,27 +73,37 @@ public class StockAllocator {
             missing -= take;
         }
 
+        if (!created.isEmpty()) {
+            // a disponibilidade é derivada de order_movements, por isso as alocações desta
+            // transacção têm de estar na BD antes da próxima leitura: sem isto, a encomenda
+            // pendente seguinte voltaria a ver esse stock como livre
+            entityManager.flush();
+        }
+
         return created;
     }
 
 
     // quando entra stock de um item, verifica cada order incompleta para alocar
-    // processa primeiro orders mais antigas
+    // processa primeiro orders mais antigas (FIFO)
     public List<Order> allocateToPendingOrders(Long itemId) {
         List<Order> completed = new ArrayList<>();
 
-        // lista de orders incompletas com quantidade para alocar
-        List<Order> pending = orderRepository.findPendingOrdersForItem(itemId);
-        for (Order candidate : pending) {
-            // query da order com pessimistic lock: enquanto não sair da transação, bloqueia leituras e updates seguintes do registo na bd
-            Order order = orderRepository.findByIdForUpdate(candidate.getId()).orElse(null);
+        // só ids: o lock e o carregamento da entidade acontecem no findByIdForUpdate,
+        // sem nenhuma leitura anterior desta order no persistence context
+        for (Long orderId : orderRepository.findPendingOrderIdsForItem(itemId)) {
+            Order order = orderRepository.findByIdForUpdate(orderId).orElse(null);
             if (order == null || order.isComplete()) {
                 continue;
             }
             List<OrderMovement> created = allocateToOrder(order);
             if (created.isEmpty()) {
-                // se não há mais stock disponível para este item, orders posteriores também não poderão ser alocados, por isso sai do loop
-                break;
+                // só se pode parar quando o item já não tem stock livre: assumir que
+                // "não alocou a esta, não aloca às seguintes" deixaria encomendas sem tentativa
+                if (stockMovementRepository.calculateAvailableStock(itemId) <= 0) {
+                    break;
+                }
+                continue;
             }
             if (order.isComplete()) {
                 completed.add(order);

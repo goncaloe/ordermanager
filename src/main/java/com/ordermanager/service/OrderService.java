@@ -2,11 +2,14 @@ package com.ordermanager.service;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,7 +74,21 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public Page<Order> list(Long itemId, Long userId, Pageable pageable) {
-        return orderRepository.findAllFilteredWithAllocations(itemId, userId, pageable);
+        // Paginação em duas fases: primeiro os ids da página, depois as entidades completas.
+        // Evita paginar em memória e que o LIMIT conte linhas do join de allocations.
+        Page<Long> ids = orderRepository.findFilteredIds(itemId, userId, pageable);
+        if (ids.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, ids.getTotalElements());
+        }
+
+        Map<Long, Order> byId = orderRepository.findAllWithAllocationsByIds(ids.getContent()).stream()
+                .collect(Collectors.toMap(Order::getId, order -> order));
+        // a query dos ids define a ordem da página (created_at, id)
+        List<Order> content = ids.getContent().stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .toList();
+        return new PageImpl<>(content, pageable, ids.getTotalElements());
     }
 
     @Transactional

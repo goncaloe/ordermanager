@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -230,5 +232,27 @@ class OrderFulfilmentIntegrationTest {
         // o stock do item antigo fica outra vez disponível
         assertThat(stockMovementService.availableStock(itemId)).isEqualTo(5);
         assertThat(stockMovementService.availableStock(otherItemId)).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("Listing orders paginates orders, not the rows of the allocations join")
+    void listPaginatesOrdersNotAllocationRows() {
+        stockMovementService.create(itemId, 5);
+        stockMovementService.create(itemId, 5);
+        Order spanning = orderService.create(itemId, userId, 10); // 2 alocações
+        Order pending = orderService.create(itemId, userId, 5); // 0 alocações
+
+        Page<Order> firstPage = orderService.list(itemId, null, PageRequest.of(0, 1));
+        Page<Order> secondPage = orderService.list(itemId, null, PageRequest.of(1, 1));
+
+        assertThat(firstPage.getTotalElements()).isEqualTo(2);
+        assertThat(firstPage.getContent()).hasSize(1);
+        assertThat(firstPage.getContent().getFirst().getId()).isEqualTo(spanning.getId());
+        assertThat(firstPage.getContent().getFirst().getAllocations()).hasSize(2);
+
+        // com JOIN FETCH + Pageable, a 2ª página repetia a 1ª encomenda (offset contava
+        // linhas do join) e a encomenda pendente nunca aparecia
+        assertThat(secondPage.getContent()).hasSize(1);
+        assertThat(secondPage.getContent().getFirst().getId()).isEqualTo(pending.getId());
     }
 }

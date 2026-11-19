@@ -35,6 +35,15 @@ Os testes de integração correm numa bd real PostgreSQL (via Testcontainers), c
 mvn test
 ```
 
+## Swagger e documentação
+
+Com a aplicação a correr, abrir:
+
+- Swagger UI: <http://localhost:8080/swagger-ui.html>
+- OpenAPI JSON: <http://localhost:8080/v3/api-docs>
+
+Aí é possível ver todos os endpoints e executá-los diretamente no browser.
+
 ## Notas de implementação
 
 - Usei o Spring Initializr https://start.spring.io/ para gerar o pom.xml com as dependências do maven.

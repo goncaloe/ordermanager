@@ -2,6 +2,8 @@ package com.ordermanager.service;
 
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -13,8 +15,6 @@ import com.ordermanager.domain.OrderMovement;
 import com.ordermanager.domain.User;
 import com.ordermanager.exception.NotFoundException;
 import com.ordermanager.repository.OrderRepository;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 @Service
 public class OrderService {
@@ -89,7 +89,20 @@ public class OrderService {
         orderRepository.delete(order);
         ORDER_LOG.info("Order {} deleted", id);
         
-        // TODO: ao apagar a order, items voltam para o stock, logo disponível para
-        // alocar a outras orders pendentes
+        // Ao apagar uma ordem liberta stock para processar outras ordens
+        Long itemId = order.getItem().getId();
+        reallocatePendingOrders(itemId);
     }
+
+    // como foi liberado stock do item, verifica ordens incompletas para alocar
+    private void reallocatePendingOrders(Long itemId) {
+        List<Order> completed = stockAllocator.allocateToPendingOrders(itemId);
+        completed.forEach(this::completeOrder);
+    }
+
+    private void completeOrder(Order order) {
+        ORDER_LOG.info("Order {} COMPLETED with {} unit(s) from {} stock movement(s)",
+                order.getId(), order.getQuantity(), order.getAllocations().size());
+    }
+
 }

@@ -119,6 +119,7 @@ class OrderFulfilmentIntegrationTest {
         Order first = orderService.create(itemId, userId, 5);
         Order second = orderService.create(itemId, userId, 5);
 
+        // o fulfill quantity não deve ultrapassar a quantidade da order
         assertThat(orderService.get(first.getId()).getFulfilledQuantity()).isEqualTo(5);
         assertThat(orderService.get(second.getId()).getFulfilledQuantity()).isZero();
 
@@ -131,4 +132,17 @@ class OrderFulfilmentIntegrationTest {
         assertThat(stockMovementService.availableStockOf(itemId)).isZero();
     }
 
+    @Test
+    @DisplayName("Deleting an order frees its stock for a pending order")
+    void deletingOrderFreesStock() {
+        stockMovementService.create(itemId, 5);
+        Order first = orderService.create(itemId, userId, 5);
+        Order second = orderService.create(itemId, userId, 5);
+        assertThat(orderService.get(second.getId()).getFulfilledQuantity()).isZero();
+
+        orderService.delete(first.getId());
+
+        Order secondAfter = orderService.get(second.getId());
+        assertThat(secondAfter.isComplete()).isTrue();
+    }
 }

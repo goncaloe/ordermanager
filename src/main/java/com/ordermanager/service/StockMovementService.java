@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ordermanager.domain.Item;
 import com.ordermanager.domain.Order;
 import com.ordermanager.domain.StockMovement;
+import com.ordermanager.dto.OrderRef;
 import com.ordermanager.dto.StockMovementResponse;
 import com.ordermanager.exception.NotFoundException;
 import com.ordermanager.repository.StockMovementRepository;
@@ -77,24 +78,14 @@ public class StockMovementService {
             stockMovementRepository.allocatedQuantityForMovement(movement.getId())));
     }
 
-    @Transactional
-    public void delete(Long id) {
-        StockMovement movement = get(id);
-        Long itemId = movement.getItem().getId();
-        String itemName = movement.getItem().getName();
-        long deletedQuantity = movement.getQuantity();
-        long affected = stockMovementRepository.findOrderRefsUsingMovement(id).size();
-
-        STOCK_LOG.info("Stock movement {} deleted (item={}, qty={})", id, itemName, deletedQuantity);
-        stockMovementRepository.deleteAllocationsUsingMovement(id);
-        stockMovementRepository.delete(movement);
-        stockMovementRepository.flush();
-
-        if (affected > 0) {
-            STOCK_LOG.warn("Stock movement {} was used by {} order(s); their fulfilment was recomputed", id, affected);
-            stockAllocator.allocateToPendingOrders(itemId);
-        }
-
+    // Encomendas que consumiram este movimento, das mais antigas para as mais recentes.
+    // Substitui o antigo DELETE: o histórico não é apagado, é consultado.
+    @Transactional(readOnly = true)
+    public List<OrderRef> listOrdersUsingMovement(Long id) {
+        get(id); // 404 se o movimento não existir
+        return stockMovementRepository.findOrderRefsUsingMovement(id).stream()
+                .map(OrderRef::from)
+                .toList();
     }
 
     // obtem a quantidade de stock livre de um item: total de entradas positivas -

@@ -3,7 +3,6 @@ package com.ordermanager.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -49,11 +48,6 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
             """)
     List<OrderRefProjection> findOrderRefsUsingMovement(@Param("movementId") Long movementId);
 
-    @Modifying
-    @Query("DELETE FROM OrderMovement a WHERE a.stockMovement.id = :movementId")
-    void deleteAllocationsUsingMovement(@Param("movementId") Long movementId);
-
-    
     @Query("SELECT COALESCE(SUM(a.quantity), 0) FROM OrderMovement a WHERE a.stockMovement.id = :movementId")
     long allocatedQuantityForMovement(@Param("movementId") Long movementId);
 

@@ -164,4 +164,71 @@ class OrderFulfilmentIntegrationTest {
 
         assertThat(stockMovementService.availableStock(itemId)).isEqualTo(8);
     }
+
+    @Test
+    @DisplayName("Increasing an order quantity allocates the extra units when stock exists")
+    void updateIncreaseAllocatesMoreStock() {
+        stockMovementService.create(itemId, 10);
+        Order order = orderService.create(itemId, userId, 2);
+
+        Order updated = orderService.update(order.getId(), itemId, userId, 6L);
+
+        assertThat(updated.getQuantity()).isEqualTo(6);
+        assertThat(updated.getFulfilledQuantity()).isEqualTo(6);
+        assertThat(updated.isComplete()).isTrue();
+        assertThat(stockMovementService.availableStock(itemId)).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("Decreasing an order quantity releases stock to a pending order")
+    void updateDecreaseReleasesStockToPendingOrder() {
+        stockMovementService.create(itemId, 5);
+        Order first = orderService.create(itemId, userId, 5); // completa
+        Order second = orderService.create(itemId, userId, 5); // pendente
+        assertThat(orderService.get(second.getId()).getFulfilledQuantity()).isZero();
+
+        Order reduced = orderService.update(first.getId(), itemId, userId, 2L);
+
+        assertThat(reduced.getQuantity()).isEqualTo(2);
+        assertThat(reduced.getFulfilledQuantity()).isEqualTo(2);
+        // as 3 unidades libertadas vão para a encomenda pendente mais antiga
+        assertThat(orderService.get(second.getId()).getFulfilledQuantity()).isEqualTo(3);
+        assertThat(stockMovementService.availableStock(itemId)).isZero();
+    }
+
+    @Test
+    @DisplayName("Decreasing an order removes the allocations that are no longer needed")
+    void updateDecreaseRemovesUnusedAllocations() {
+        stockMovementService.create(itemId, 3);
+        stockMovementService.create(itemId, 4);
+        Order order = orderService.create(itemId, userId, 7);
+        assertThat(order.getAllocations()).hasSize(2);
+
+        // 7 -> 2: as alocações mais recentes deixam de ser necessárias
+        Order reduced = orderService.update(order.getId(), itemId, userId, 2L);
+
+        assertThat(reduced.getFulfilledQuantity()).isEqualTo(2);
+        assertThat(reduced.getAllocations()).hasSize(1);
+        assertThat(reduced.getAllocations().getFirst().getQuantity()).isEqualTo(2);
+        assertThat(stockMovementService.availableStock(itemId)).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("Changing the item of an order releases the old stock and allocates from the new item")
+    void updateChangingItemReallocates() {
+        stockMovementService.create(itemId, 5);
+        Long otherItemId = itemService.create("Other " + System.nanoTime()).getId();
+        stockMovementService.create(otherItemId, 10);
+        Order order = orderService.create(itemId, userId, 5);
+        assertThat(order.isComplete()).isTrue();
+
+        Order moved = orderService.update(order.getId(), otherItemId, userId, 5L);
+
+        assertThat(moved.getItem().getId()).isEqualTo(otherItemId);
+        assertThat(moved.isComplete()).isTrue();
+        assertThat(moved.getAllocations()).hasSize(1);
+        // o stock do item antigo fica outra vez disponível
+        assertThat(stockMovementService.availableStock(itemId)).isEqualTo(5);
+        assertThat(stockMovementService.availableStock(otherItemId)).isEqualTo(5);
+    }
 }

@@ -50,4 +50,12 @@ public class OrderMovement {
         this.quantity += qty;
     }
 
+    // diminui a quantidade consumida; quando chega a 0 a alocação é removida da order
+    public void reduceQuantity(long qty) {
+        if (qty < 0 || qty > quantity) {
+            throw new IllegalArgumentException("Invalid quantity to release: " + qty);
+        }
+        this.quantity -= qty;
+    }
+
 }

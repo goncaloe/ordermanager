@@ -3,6 +3,7 @@ package com.ordermanager.domain;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -38,6 +39,7 @@ public class Order {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
+    @Setter
     private User user;
 
     @Column(nullable = false)
@@ -47,8 +49,10 @@ public class Order {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
-    // cascade all para remover registos de order_movements quando se remove a order
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    // cascade all para remover registos de order_movements quando se remove a order.
+    // orphanRemoval para apagar as alocações que deixam de existir quando a quantidade
+    // da encomenda é reduzida (ver releaseExcessAllocations).
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderMovement> allocations = new ArrayList<>();
 
     public Order(Item item, User user, long quantity) {
@@ -59,6 +63,38 @@ public class Order {
 
     public void allocate(StockMovement movement, long quantity) {
         allocations.add(new OrderMovement(this, movement, quantity));
+    }
+
+    // Liberta as alocações que excedem a quantidade atual da encomenda, começando pelas
+    // mais recentes. Devolve as unidades libertadas, que ficam disponíveis para outras
+    // encomendas. Deve ser chamado depois de alterar quantity.
+    public long releaseExcessAllocations() {
+        long excess = getFulfilledQuantity() - quantity;
+        if (excess <= 0) {
+            return 0;
+        }
+
+        long released = 0;
+        ListIterator<OrderMovement> iterator = allocations.listIterator(allocations.size());
+        while (iterator.hasPrevious() && excess > 0) {
+            OrderMovement allocation = iterator.previous();
+            long take = Math.min(excess, allocation.getQuantity());
+            allocation.reduceQuantity(take);
+            excess -= take;
+            released += take;
+            // a alocação ficou a zero -> a linha deixa de existir (orphanRemoval)
+            if (allocation.getQuantity() == 0) {
+                iterator.remove();
+            }
+        }
+        return released;
+    }
+
+    // Liberta todas as alocações (ex.: quando a encomenda passa a ser de outro item).
+    public long releaseAllAllocations() {
+        long released = getFulfilledQuantity();
+        allocations.clear();
+        return released;
     }
 
     // alguns métodos funcionam como campos virtuais, e não guardados na tabela da bd,

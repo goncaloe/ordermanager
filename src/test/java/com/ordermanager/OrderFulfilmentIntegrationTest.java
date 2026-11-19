@@ -113,7 +113,7 @@ class OrderFulfilmentIntegrationTest {
     }
     
     @Test
-    @DisplayName("A movement is never over-committed beyond its own quantity")
+    @DisplayName("A movement is never suprasses beyond its own quantity")
     void movementIsNeverOverAllocated() {
         stockMovementService.create(itemId, 5);
         Order first = orderService.create(itemId, userId, 5);
@@ -144,5 +144,24 @@ class OrderFulfilmentIntegrationTest {
 
         Order secondAfter = orderService.get(second.getId());
         assertThat(secondAfter.isComplete()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Negative movements never satisfy orders")
+    void negativeMovementDoesNotFulfil() {
+        stockMovementService.create(itemId, -5);
+        Order order = orderService.create(itemId, userId, 3);
+
+        assertThat(order.getFulfilledQuantity()).isZero();
+        assertThat(stockMovementService.availableStock(itemId)).isZero();
+    }
+
+    @Test
+    @DisplayName("Only positive movement quantity counts towards availability")
+    void availabilityIgnoresNegativeMovements() {
+        stockMovementService.create(itemId, 8);
+        stockMovementService.create(itemId, -3);
+
+        assertThat(stockMovementService.availableStock(itemId)).isEqualTo(8);
     }
 }

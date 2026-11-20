@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ordermanager.domain.Order;
 import com.ordermanager.domain.StockMovement;
+import com.ordermanager.dto.OrderRef;
 import com.ordermanager.service.ItemService;
 import com.ordermanager.service.OrderService;
 import com.ordermanager.service.StockMovementService;
@@ -111,7 +112,13 @@ class OrderFulfilmentIntegrationTest {
                 .extracting(a -> a.getStockMovement().getId())
                 .containsExactly(first.getId(), second.getId());
 
-        //TODO: verificar que first e second tem order associado
+        // movement -> orders (rastreabilidade inversa)
+        assertThat(stockMovementService.listOrdersUsingMovement(first.getId()))
+                .extracting(OrderRef::id)
+                .containsExactly(order.getId());
+        assertThat(stockMovementService.listOrdersUsingMovement(second.getId()))
+                .extracting(OrderRef::id)
+                .containsExactly(order.getId());
     }
     
     @Test

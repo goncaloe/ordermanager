@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -69,6 +71,20 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleLockFailure(PessimisticLockingFailureException ex, HttpServletRequest request) {
         return problem(HttpStatus.CONFLICT, "Concurrent operation",
                 "The resource is being modified by another operation. Try again.", request);
+    }
+
+    // Erros de protocolo também passam por aqui: sem estes handlers, o handler genérico
+    // de Exception transformava um 405/415 (erro do cliente) num 500.
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ProblemDetail handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest request) {
+        return problem(HttpStatus.METHOD_NOT_ALLOWED, "Method not allowed", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ProblemDetail handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex,
+            HttpServletRequest request) {
+        return problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported media type", ex.getMessage(), request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
